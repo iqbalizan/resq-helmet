@@ -129,16 +129,29 @@ Watch the project demonstration here:
 
 ---
 
-# Note
+## Note
 
-The source code is kept private. This repository is intended to showcase the project architecture, implementation, and outcomes for portfolio purposes.
+This repository is intended to showcase the project architecture, implementation, and outcomes. Some supporting files used during development are not included.
 
 ---
 
-# Author
+## Project Team
 
-**Muhammad Iqbal Bin Izan**
+This project was developed collaboratively as part of an academic group project.
+
+## Authors
+
+- Muhammad Iqbal Bin Izan
+- Muhammad Luqman Hakim Bin Abdul Razak
+- Mohamad Najmudin Hakimi Bin Mohd Mohaidin
+- Hairie Aqmal Bin Dannie Azlan
+
+## Academic Information
 
 Bachelor of Mechatronic Engineering with Honours
 
 Universiti Malaysia Perlis (UniMAP)
+
+## Repository Maintainer
+
+Muhammad Iqbal Bin Izan
