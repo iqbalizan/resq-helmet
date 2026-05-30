@@ -31,6 +31,10 @@ ResQ Helmet is designed to improve rider safety by detecting potential accidents
 - IoT Applications
 - Sensor Integration
 
+## System Overview
+
+![System Flow](images/system_overview.png)
+
 ## System Flow
 
 ![System Flow](images/system_flow.png)
