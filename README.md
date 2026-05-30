@@ -47,7 +47,7 @@ ResQ Helmet is designed to improve rider safety by detecting potential accidents
 
 ### Wiring Diagram
 
-![Wiring Diagram](images/wiring_diagram.png)
+![Wiring Diagram](images/RESQSchematic.jpg)
 
 ### Telegram SOS Notification
 
