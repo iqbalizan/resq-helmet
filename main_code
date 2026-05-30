@@ -1,0 +1,234 @@
+import time
+import board
+import analogio
+import digitalio
+import pyRTOS
+import busio
+import wifi
+import socketpool
+import ssl
+import adafruit_requests
+from helmet_system import LightMonitor, MPUCrashDetector, BuzzerAlert, TelegramBot, HelmetGPS
+
+# --- WiFi Connection ---
+print("🔄 Connecting to WiFi...")
+wifi.radio.connect("YOUR_WIFI_NAME", "YOUR_WIFI_PASSWORD")
+pool = socketpool.SocketPool(wifi.radio)
+requests = adafruit_requests.Session(pool, ssl.create_default_context())
+print("✅ Connected to WiFi:", wifi.radio.ipv4_address)
+
+limit_switch = digitalio.DigitalInOut(board.GP14)
+limit_switch.direction = digitalio.Direction.INPUT
+limit_switch.pull = digitalio.Pull.UP  # Active Low
+
+yellow_led = digitalio.DigitalInOut(board.GP19)
+yellow_led.direction = digitalio.Direction.OUTPUT
+
+# --- Sensors ---
+i2c = busio.I2C(scl=board.GP3, sda=board.GP2)
+
+# --- Class Instances ---
+light_sensor = LightMonitor(ldr_pin=board.GP26, red_led=board.GP0, dark_thresh=10.0, light_thresh=20.0)
+crash_detector = MPUCrashDetector(i2c)
+buzzer = BuzzerAlert(board.GP18)
+
+# --- GPS via UART ---
+uart_gps = busio.UART(board.GP4, board.GP5, baudrate=9600, timeout=10)
+gps_module = HelmetGPS(uart_gps)
+
+# --- Telegram Setup ---
+bot = TelegramBot("YOUR_WIFI_NAME", "YOUR_WIFI_PASSWORD", "YOUR_TELEGRAM_BOT_TOKEN")
+bot.requests = requests
+bot.wait_for_chat_id()
+bot.send_message("✅ Bot Started. System Examining...")
+
+# --- Helmet State ---
+helmet_state = {
+    "started": False,
+    "crash": False,
+    "pending_crash": False,
+    "lux": None,
+    "gps": None
+}
+
+# --- RTOS Tasks ---
+
+def telegram_task(self):
+    yield
+    while True:
+        cmd = telegram_get_updates()
+        if cmd == "/start" and not helmet_state["started"] and not limit_switch.value:
+            helmet_state["started"] = True
+            bot.send_message("✅ Helmet Buckled. System Activated.")
+        yield [pyRTOS.timeout(1.0)]
+
+
+def light_task(self):
+    yield
+    while True:
+        if helmet_state["started"] and not limit_switch.value:
+            lux = light_sensor.check_light()
+            helmet_state["lux"] = lux
+        else:
+            helmet_state["lux"] = None
+            light_sensor.led.value = False
+            light_sensor.is_dark = False
+
+        yield [pyRTOS.timeout(1.0)]
+
+
+# --- Telegram Polling Function ---
+
+def telegram_get_updates():
+    try:
+        url = f"https://api.telegram.org/bot{bot.token}/getUpdates"
+
+        resp = bot.requests.get(url).json()
+
+        for update in resp.get("result", []):
+            msg = update.get("message", {})
+
+            if msg:
+                text = msg.get("text")
+
+                if text:
+                    return text
+
+    except Exception as e:
+        print(f"Error getting updates: {e}")
+
+    return None
+
+
+# --- RTOS Tasks ---
+
+def crash_task(self):
+    yield
+
+    crash_active = False
+
+    while True:
+        if helmet_state["started"] and not limit_switch.value:
+
+            if not crash_active:
+
+                crash, acc, gyro = crash_detector.check_crash()
+
+                print(f"📉 Accel: {acc} | Gyro: {gyro}")
+
+                yield [pyRTOS.timeout(0.1)]
+
+                # Simulated crash for testing
+                crash = True
+
+                if crash:
+
+                    crash_active = True
+                    helmet_state["crash"] = True
+                    yellow_led.value = True
+                    buzzer.on()
+
+                    loc = helmet_state.get("gps")
+
+                    if loc:
+                        msg = f"🚨 Crash Detected!\n Location: ({loc['Latitude']:.6f}, {loc['Longitude']:.6f})"
+
+                        print(f"🚨 Crash Detected at ({loc['Latitude']:.6f}, {loc['Longitude']:.6f})")
+
+                        bot.send_message(msg)
+
+                    else:
+                        bot.send_message("🚨 Crash Detected. GPS acquiring...")
+
+                        print("🚨 Crash Detected. GPS acquiring...")
+
+                        helmet_state["pending_crash"] = True
+
+        else:
+            yellow_led.value = False
+            buzzer.off()
+            crash_active = False
+
+        yield [pyRTOS.timeout(0.1)]
+
+
+def gps_task(self):
+    yield
+
+    last_update = time.monotonic()
+
+    while True:
+
+        gps_module.update()
+
+        now = time.monotonic()
+
+        if now - last_update > 1.0:
+
+            last_update = now
+
+            if gps_module.has_fix():
+
+                loc = gps_module.get_location()
+
+                helmet_state["gps"] = loc
+
+                print(f"📍 GPS Fix: {loc['Latitude']:.6f}, {loc['Longitude']:.6f}")
+
+                if helmet_state.get("pending_crash"):
+
+                    bot.send_message(
+                        f"📍 Crash Location Update:\n({loc['Latitude']:.6f}, {loc['Longitude']:.6f})"
+                    )
+
+                    helmet_state["pending_crash"] = False
+
+            else:
+                print("❌ GPS: No fix")
+
+        yield [pyRTOS.timeout(1.0)]
+
+
+def limit_switch_task(self):
+    yield
+
+    last_state = limit_switch.value
+
+    while True:
+
+        current = limit_switch.value
+
+        if current != last_state:
+
+            if not current:  # LOW = Helmet Buckled
+
+                helmet_state["started"] = True
+
+                bot.send_message("✅ Helmet is Buckled. System Activated.")
+
+                print("✅ Helmet worn. System resumed.")
+
+            else:  # HIGH = Helmet Unbuckled
+
+                helmet_state["started"] = False
+                helmet_state["crash"] = False
+                helmet_state["pending_crash"] = False
+
+                bot.send_message("🛑 Helmet is Unbuckled. System Paused.")
+
+                print("🛑 Helmet removed. System paused.")
+
+            last_state = current
+
+        yield [pyRTOS.timeout(0.5)]
+
+
+# --- RTOS Scheduler ---
+
+pyRTOS.add_task(pyRTOS.Task(telegram_task, name="TelegramTask", priority=1))
+pyRTOS.add_task(pyRTOS.Task(light_task, name="LightTask", priority=1))
+pyRTOS.add_task(pyRTOS.Task(crash_task, name="CrashTask", priority=1))
+pyRTOS.add_task(pyRTOS.Task(limit_switch_task, name="SwitchMonitor", priority=1))
+pyRTOS.add_task(pyRTOS.Task(gps_task, name="GPS", priority=2))
+
+pyRTOS.start()
