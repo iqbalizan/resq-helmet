@@ -49,9 +49,13 @@ ResQ Helmet is designed to improve rider safety by detecting potential accidents
 
 ![Wiring Diagram](images/RESQSchematic.jpg)
 
-### GPS Location
+## Emergency Location Tracking
 
-![GPS_Location](images/GPS_Location.jpg)
+In the event of a crash, the system automatically retrieves the GPS coordinates and provides the location information for emergency response purposes.
+
+### Example Output
+
+![Emergency Location Tracking](images/emergency_location_tracking.jpg)
 
 ### Telegram SOS Notification
 
