@@ -31,9 +31,9 @@ ResQ Helmet is designed to improve rider safety by detecting potential accidents
 - IoT Applications
 - Sensor Integration
 
-## System Architecture
+## System Flow
 
-![System Architecture](images/system_architecture.png)
+![System Flow](images/system_flow.png)
 
 ## Project Images
 
@@ -65,7 +65,7 @@ In the event of a crash, the system automatically retrieves the GPS coordinates 
 
 Watch the project demonstration here:
 
-[Project Demo Video](PASTE_YOUR_VIDEO_LINK_HERE)
+[Project Demo Video](https://youtu.be/T02Tgaeat9Q?si=MFx0AoZFtniPDixu)
 
 ## Skills Demonstrated
 
